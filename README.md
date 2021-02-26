@@ -50,6 +50,7 @@ You can give the state a custom identifier, if not a random uuid v4 will be gene
 import { Client } from 'server-state-sync';
 
 const client = new Client();
+
 await client.connect('ws://{host}:{PORT}');
 ```
 Has to match the StateSyncer host and port
@@ -79,9 +80,10 @@ client.updateState({
 Each state update will be sent to the StateSyncer to be synchronized and broadcasted to other connected clients
 ### Listen to state updates
 ```
-client.addStateUpdateListener('listenerIdentifier', 
-    (newUpdates, previousUpdates, entireState) => {
+client.addStateUpdateListener('listenerIdentifier', (newUpdates, previousUpdates, entireState) => {
+
         console.log(newUpdates, previousUpdates, entireState);
+
 }, ['property']);
 ```
 You can add multiple listeners that will listen to specific properties of the state. If you add 2 listeners with the same listenerIdentifier, only the latest one will be used. Very useful when dealing with react lifecycles.
