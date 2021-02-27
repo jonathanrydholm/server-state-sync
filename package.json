@@ -1,6 +1,6 @@
 {
   "name": "server-state-sync",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "State synchronization between multiple clients",
   "main": "./dist/index.js",
   "scripts": {

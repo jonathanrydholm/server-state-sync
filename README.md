@@ -177,3 +177,94 @@ const stateSyncer = new StateSyncer({
 });
 ```
 If you want to run your StateSyncer in SSL mode, simply give the constructor a cert and a key, it will automatically start in SSL mode.
+## Full example
+### Server side
+```js
+import { StateSyncer } from 'server-state-sync';
+import url from 'url';
+
+const stateSyncer = new StateSyncer();
+
+stateSyncer.useAuthorizationMiddleware((request, callback) => {
+    const token = url.parse(request.url, true).query.token;
+    if (isTokenValid(token)) {
+        const clientInformation = extractInfoFromToken(token); // { email: jonathan@outlook.com }
+        callback(clientInformation, true);
+    } else {
+        callback(null, false);
+    }
+})
+
+stateSyncer.start(5000).then(() => {
+    stateSyncer.createState({
+        identifier: 'myGroupChat',
+        initialValue: {
+            chatMessages: []
+        },
+        allowConnectingClient: (clientInformation) => {
+            if (clientInformation.email === 'jonathan@outlook.com') {
+                return true;
+            }
+            return false;
+        },
+        selfDestruct: (numberOfClients, timeSinceCreation) => {
+            if (numberOfClients === 0) {
+                return true;
+            }
+            return false;
+        }
+    });
+});
+```
+### Client side
+```js
+import React, { useEffect, useState, useRef } from 'react';
+import { Client } from 'server-state-sync';
+
+const ChatWidget = () => {
+
+    const [ messages, setMessages ] = useState([]);
+
+    const clientRef = useRef();
+
+    useEffect(() => {
+        const client = new Client('ws://localhost:5000', 'userIdentifier', 'accessToken');
+
+        client.onConnection().then(() => {
+
+            client.connectToState('abc').then((state) => {
+
+                // when connectToState is done, the entire backend state is fetched, meaning you can initialize your react state from that.
+                setMessages(state.chatMessages);
+
+                // Listen for new chatMessages
+                client.addStateUpdateListener('client', (updates) => {
+                    setMessages(updates.chatMessages);
+                }, ['chatMessages']);
+            });
+        });
+
+        clientRef.current = client;
+    }, []);
+
+    const onSendMessage = () => {
+        clientRef.current.updateState({
+            chatMessages: [
+                ...messages,
+                { content: 'This is a new message' }
+            ]
+        })
+    }
+
+    return (
+        <div>
+            {messages.map(message => (
+                <div>
+                    {message.content}
+                </div>
+            ))}
+            <button onClick={onSendMessage}>Send Message</button>
+        </div>
+    );
+}
+```
