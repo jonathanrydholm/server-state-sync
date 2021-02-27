@@ -26,7 +26,8 @@ stateSyncer.start(PORT).then(() => {});
 ```js
 const generatedStateIdentifier = stateSyncer.createState(StateOptions);
 ```
-
+If you do not give the state an identifier, a generated one will be returned.
+If a state already exists with the same identifier, null will be returned.
 ### Creating a new state with custom identifier
 
 ```js
