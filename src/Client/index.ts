@@ -1,9 +1,8 @@
-import * as Websocket from 'ws';
 import { ClientToServerMessageTypes, ServerToClientMessageTypes } from '../Constants';
 
 export default class Client {
 
-    private socket: Websocket;
+    private socket: WebSocket;
 
     private state: any;
 
@@ -11,13 +10,8 @@ export default class Client {
 
     constructor(endpoint: string, identifier: string, accessToken?: string) {
         this.state = new Map();
-        this.socket = new Websocket(endpoint, {
-            headers: {
-                identifier,
-                token: accessToken || ''
-            }
-        });
-        this.socket.on('message', this.onMessage);
+        this.socket = new WebSocket(`${endpoint}?identifier=${identifier}&token=${accessToken || ''}`);
+        this.socket.onmessage = this.onMessage;
     };
 
     public addStateUpdateListener = (identifier: string, handler: (updates: any, previousUpdates: any) => void, properties: Array<string> = [] ) => {
@@ -77,11 +71,11 @@ export default class Client {
     };
 
     public onConnection = () => new Promise((resolve) => {
-        this.socket.on('open', resolve);
+        this.socket.onopen = resolve;
     });
 
     public onError = () => new Promise((resolve) => {
-        this.socket.on('error', resolve);
+        this.socket.onerror = resolve;
     });
 
     public getState = (): any => this.state;
@@ -107,7 +101,7 @@ export default class Client {
     };
 
     private sendMesage = (msg: Object) => {
-        if (this.socket && this.socket.readyState === Websocket.OPEN) {
+        if (this.socket && this.socket.readyState === this.socket.OPEN) {
             this.socket.send(JSON.stringify(msg));
         } else {
             console.error('Not connected to StateSyncer');
