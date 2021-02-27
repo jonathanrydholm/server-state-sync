@@ -1,93 +1,82 @@
-import _extends from "@babel/runtime/helpers/extends";
 import { SERVER_TO_CLIENT_MSG } from '../messageTypes';
 import { SYNC_ERROR } from '../errorTypes';
+export default class State {
+  constructor({
+    initialValue = {},
+    destructionHandler,
+    allowClientConnecting = () => true,
+    interceptStateUpdate = updates => updates
+  }) {
+    this.value = {};
+    this.connectedClients = [];
 
-var State = function State(_ref) {
-  var _this = this;
+    this.destructionHandler = () => {};
 
-  var _ref$initialValue = _ref.initialValue,
-      initialValue = _ref$initialValue === void 0 ? {} : _ref$initialValue,
-      destructionHandler = _ref.destructionHandler,
-      _ref$allowClientConne = _ref.allowClientConnecting,
-      allowClientConnecting = _ref$allowClientConne === void 0 ? function () {
-    return true;
-  } : _ref$allowClientConne,
-      _ref$interceptStateUp = _ref.interceptStateUpdate,
-      interceptStateUpdate = _ref$interceptStateUp === void 0 ? function (updates) {
-    return updates;
-  } : _ref$interceptStateUp;
-  this.value = {};
-  this.connectedClients = [];
+    this.connectClient = socketClient => {
+      if (this.allowClientConnecting(socketClient.metadata)) {
+        this.connectedClients.push(socketClient);
+        socketClient.onStateConnected(this);
+        socketClient.sendMessage({
+          type: SERVER_TO_CLIENT_MSG.STATE_CONNECTION_ESTABLISHED,
+          data: {
+            state: this.value
+          }
+        });
+      } else {
+        socketClient.sendMessage({
+          type: SERVER_TO_CLIENT_MSG.STATE_CONNECTION_ERROR,
+          data: {
+            message: 'Tried to connect to state but was not allowed to',
+            type: SYNC_ERROR.CONNECT_TO_STATE
+          }
+        });
+      }
+    };
 
-  this.destructionHandler = function () {};
+    this.disconnectClient = socketClient => {
+      this.connectedClients = this.connectedClients.filter(client => client.identifier !== socketClient.identifier);
 
-  this.connectClient = function (socketClient) {
-    if (_this.allowClientConnecting(socketClient.metadata)) {
-      _this.connectedClients.push(socketClient);
+      if (this.connectedClients.length === 0) {
+        this.destroy();
+      }
+    };
 
-      socketClient.onStateConnected(_this);
-      socketClient.sendMessage({
-        type: SERVER_TO_CLIENT_MSG.STATE_CONNECTION_ESTABLISHED,
-        data: {
-          state: _this.value
-        }
+    this.mutate = (updates, metadata) => {
+      const afterInterception = this.interceptStateUpdate(updates, metadata);
+
+      if (!afterInterception) {
+        return;
+      }
+
+      this.value = { ...this.value,
+        ...afterInterception
+      };
+      this.onStateUpdate(afterInterception);
+    };
+
+    this.onStateUpdate = updates => {
+      this.connectedClients.forEach(client => {
+        client.sendMessage({
+          type: SERVER_TO_CLIENT_MSG.STATE_UPDATED,
+          data: {
+            updates
+          }
+        });
       });
-    } else {
-      socketClient.sendMessage({
-        type: SERVER_TO_CLIENT_MSG.STATE_CONNECTION_ERROR,
-        data: {
-          message: 'Tried to connect to state but was not allowed to',
-          type: SYNC_ERROR.CONNECT_TO_STATE
-        }
-      });
-    }
-  };
+    };
 
-  this.disconnectClient = function (socketClient) {
-    _this.connectedClients = _this.connectedClients.filter(function (client) {
-      return client.identifier !== socketClient.identifier;
-    });
+    this.destroy = () => {
+      this.destructionHandler();
+    };
 
-    if (_this.connectedClients.length === 0) {
-      _this.destroy();
-    }
-  };
+    this.value = initialValue;
+    this.destructionHandler = destructionHandler;
+    this.allowClientConnecting = allowClientConnecting;
+    this.interceptStateUpdate = interceptStateUpdate;
+  }
+  /*
+      Used to connect a client to this state
+  */
 
-  this.mutate = function (updates, metadata) {
-    var afterInterception = _this.interceptStateUpdate(updates, metadata);
 
-    if (!afterInterception) {
-      return;
-    }
-
-    _this.value = _extends({}, _this.value, afterInterception);
-
-    _this.onStateUpdate(afterInterception);
-  };
-
-  this.onStateUpdate = function (updates) {
-    _this.connectedClients.forEach(function (client) {
-      client.sendMessage({
-        type: SERVER_TO_CLIENT_MSG.STATE_UPDATED,
-        data: {
-          updates: updates
-        }
-      });
-    });
-  };
-
-  this.destroy = function () {
-    _this.destructionHandler();
-  };
-
-  this.value = initialValue;
-  this.destructionHandler = destructionHandler;
-  this.allowClientConnecting = allowClientConnecting;
-  this.interceptStateUpdate = interceptStateUpdate;
 }
-/*
-    Used to connect a client to this state
-*/
-;
-
-export { State as default };

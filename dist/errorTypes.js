@@ -1,4 +1,4 @@
-export var SYNC_ERROR = {
+export const SYNC_ERROR = {
   IDENTIFIER_EXCHANGE: 1,
   CONNECT_TO_STATE: 2,
   UPDATE_STATE: 3,

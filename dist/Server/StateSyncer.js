@@ -5,104 +5,99 @@ import StateManager from './StateManager';
 import SocketClient from './SocketClient';
 /** Description of StateSyncer */
 
-var StateSyncer =
-/** @private */
+export default class StateSyncer {
+  /** @private */
 
-/** @private */
+  /** @private */
 
-/** @private */
+  /** @private */
 
-/**
- * Create a new StateSyncer instance.
- * @param {{ ssl: boolean, cert: Buffer, key: Buffer }} config - If ssl = true, cert and key must be supplied.
- */
-function StateSyncer(config) {
-  var _this = this;
+  /**
+   * Create a new StateSyncer instance.
+   * @param {{ ssl: boolean, cert: Buffer, key: Buffer }} config - If ssl = true, cert and key must be supplied.
+   */
+  constructor(config = {}) {
+    this.wss = null;
+    this.serverInstance = null;
+    this.stateManager = new StateManager();
 
-  if (config === void 0) {
-    config = {};
-  }
+    this.onUpgrade = (request, socket, head) => {
+      this._authenticateClient(request, (metadata, success) => {
+        if (!success) {
+          socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+          socket.destroy();
+          return;
+        }
 
-  this.wss = null;
-  this.serverInstance = null;
-  this.stateManager = new StateManager();
+        this.wss.handleUpgrade(request, socket, head, ws => {
+          this.wss.emit('connection', ws, metadata);
+        });
+      });
+    };
 
-  this.onUpgrade = function (request, socket, head) {
-    _this._authenticateClient(request, function (metadata, success) {
-      if (!success) {
-        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-        socket.destroy();
-        return;
+    this._authenticateClient = (_, callback) => {
+      callback();
+    };
+
+    this.useAuthorizationMiddleware = middleware => {
+      this._authenticateClient = middleware;
+    };
+
+    this.start = port => {
+      this.serverInstance.listen(port);
+    };
+
+    this.onConnection = (socket, metadata) => {
+      new SocketClient(socket, this, metadata);
+    };
+
+    this.createNewState = options => {
+      return this.stateManager.addState(options);
+    };
+
+    this.removeState = identifier => {
+      this.stateManager.removeState(identifier);
+    };
+
+    this.connectToState = ({
+      socketClient,
+      stateIdentifier
+    }) => {
+      this.stateManager.connectToState({
+        socketClient,
+        stateIdentifier
+      });
+    };
+
+    const {
+      ssl,
+      cert,
+      key
+    } = config;
+    this.wss = new Server({
+      noServer: true
+    });
+    this.wss.on('connection', this.onConnection);
+
+    if (ssl) {
+      if (!cert || !key) {
+        throw new Error('cert and key are both required while using ssl');
       }
 
-      _this.wss.handleUpgrade(request, socket, head, function (ws) {
-        _this.wss.emit('connection', ws, metadata);
+      const httpsServer = createHttpsServer({
+        cert,
+        key
       });
-    });
-  };
-
-  this._authenticateClient = function (_, callback) {
-    callback();
-  };
-
-  this.useAuthorizationMiddleware = function (middleware) {
-    _this._authenticateClient = middleware;
-  };
-
-  this.start = function (port) {
-    _this.serverInstance.listen(port);
-  };
-
-  this.onConnection = function (socket, metadata) {
-    new SocketClient(socket, _this, metadata);
-  };
-
-  this.createNewState = function (options) {
-    return _this.stateManager.addState(options);
-  };
-
-  this.removeState = function (identifier) {
-    _this.stateManager.removeState(identifier);
-  };
-
-  this.connectToState = function (_ref) {
-    var socketClient = _ref.socketClient,
-        stateIdentifier = _ref.stateIdentifier;
-
-    _this.stateManager.connectToState({
-      socketClient: socketClient,
-      stateIdentifier: stateIdentifier
-    });
-  };
-
-  var _config = config,
-      ssl = _config.ssl,
-      cert = _config.cert,
-      key = _config.key;
-  this.wss = new Server({
-    noServer: true
-  });
-  this.wss.on('connection', this.onConnection);
-
-  if (ssl) {
-    if (!cert || !key) {
-      throw new Error('cert and key are both required while using ssl');
+      httpsServer.on('upgrade', this.onUpgrade);
+      this.serverInstance = httpsServer;
+    } else {
+      const httpServer = createHttpServer();
+      httpServer.on('upgrade', this.onUpgrade);
+      this.serverInstance = httpServer;
     }
-
-    var httpsServer = createHttpsServer({
-      cert: cert,
-      key: key
-    });
-    httpsServer.on('upgrade', this.onUpgrade);
-    this.serverInstance = httpsServer;
-  } else {
-    var httpServer = createHttpServer();
-    httpServer.on('upgrade', this.onUpgrade);
-    this.serverInstance = httpServer;
   }
-}
-/** @private */
-;
+  /** @private */
 
-export { StateSyncer as default };
+
+}
 ;
