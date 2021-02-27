@@ -4,13 +4,15 @@ import { ServerToClientMessageTypes } from '../Constants';
 export interface StateConfiguration {
     initialValue?: Object,
     allowConnectingClient?: (clientInformation: any) => Boolean,
-    interceptStateUpdate?: (updates: Object, clientInformation: any) => Object | null
+    interceptStateUpdate?: (updates: Object, clientInformation: any) => Object | null,
+    selfDestruct?: (numberOfClients: number, timeSinceCreation: Date) => Boolean;
 }
 
 interface DefaultStateConfiguration extends StateConfiguration {
     initialValue: Object,
     allowConnectingClient: (clientInformation: any) => Boolean,
     interceptStateUpdate: (updates: Object, clientInformation: any) => Object | null,
+    selfDestruct: (numberOfClients: number, timeSinceCreation: Date) => Boolean;
 }
 
 export default class State {
@@ -23,11 +25,17 @@ export default class State {
         initialValue: {},
         allowConnectingClient: () => true,
         interceptStateUpdate: (updates: any) => updates,
+        selfDestruct: (_: number, __: Date) => false
     };
 
     private destructionHandler: () => void;
 
+    private timeOfCreation: Date;
+
     constructor(config: StateConfiguration, destructionHandler: () => void) {
+
+        this.timeOfCreation = new Date();
+
         this.config = {
             ...this.config,
             ...config,
@@ -57,7 +65,7 @@ export default class State {
     public disconnectClient = (socketClient: SocketClient): void => {
         this.connectedClients = this.connectedClients.filter(connectedClient => connectedClient.identifier !== socketClient.identifier);
 
-        if (this.connectedClients.length === 0) {
+        if (this.config.selfDestruct(this.connectedClients.length, this.timeOfCreation)) {
             this.destroy();
         }
     }

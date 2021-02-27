@@ -48,8 +48,29 @@ stateSyncer.createState({
 stateSyncer.removeState('stateIdentifier');
 ```
 ### State lifecycles
-A state will be destroyed when all clients have disconnected from it. 
+```js
+stateSyncer.createState({
+    selfDestruct: (numberOfClientsLeft, timeOfCreation) => {
+        if (numberOfClientsLeft === 0) {
+            return true
+        }
+        return false;
+    }
+})
 
+stateSyncer.createState({
+    selfDestruct: (numberOfClientsLeft, timeOfCreation) => {
+        if (new Date().getTime() - timeOfCreation.getTime() > 1000 * 60 * 60) {
+            return true
+        }
+        return false;
+    }
+})
+```
+As default, a state will never be destroyed. You can however override this behaviour with the selfDestruct property.
+First argument is the number of connected clients left, could be useful if you want to destroy your state if no clients are connected ot it anymore.
+Second argument is the time of the state creation.
+Returning true means the state will be destroyed. This function will be called everytime a client disconnects.
 ## Client Side
 ### Connect client to StateSyncer
 ```js
