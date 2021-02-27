@@ -101,12 +101,17 @@ client.onError().then((e) => console.error(e));
 ## Authorization
 ### Server side
 ```js
-stateSyncer.useAuthorizationMiddleware((request, callback) => {
+import url from 'url';
 
-    const isValid = validateToken(request.headers.token);
+stateSyncer.useAuthorizationMiddleware((request, callback) => {
+    // extract token
+    const token = url.parse(request.url, true).query.token;
+
+    //validate token
+    const isValid = validateToken(token);
 
     if (isValid) {
-        const clientInformation = getClientInfoFromToken(request.headers.token);
+        const clientInformation = getClientInfoFromToken(token);
         callback(clientInformation, true);
     } else {
         callback(null, false);

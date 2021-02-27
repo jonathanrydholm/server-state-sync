@@ -29,7 +29,7 @@ export default class Client {
     };
 
     private onMessage = (event: any) => {
-        const { type, data } = JSON.parse(event)
+        const { type, data } = JSON.parse(event.data)
 
         switch (type) {
             case ServerToClientMessageTypes.STATE_UPDATED:
