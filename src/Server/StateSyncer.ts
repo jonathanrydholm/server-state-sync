@@ -2,6 +2,7 @@ import * as Ws from 'ws';
 import * as net from 'net';
 import * as Https from 'https';
 import * as Http from 'http';
+import { parse } from 'url';
 import SocketClient from './SocketClient';
 import StateManager, { StateCreationConfiguration } from './StateManager';
 
@@ -33,7 +34,7 @@ export default class StateSyncer {
     }
 
     private onUpgrade = (request: Http.IncomingMessage, socket: net.Socket, head: Buffer) => {
-
+        request.url
         this._authenticateClient(request, (clientInformation, success) => {
             if (!success) {
                 socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
@@ -42,7 +43,16 @@ export default class StateSyncer {
             }
 
             this.webSocketServer.handleUpgrade(request, socket, head, (ws: Ws) => {
-                this.webSocketServer.emit('connection', ws, clientInformation, request.headers.identifier);
+                if (request.url) {
+                    const clientIdentifier = parse(request.url, true).query.identifier;
+                    if (clientIdentifier) {
+                        this.webSocketServer.emit('connection', ws, clientInformation, clientIdentifier);
+                    } else {
+                        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+                        socket.destroy();
+                        return;
+                    }
+                }
             });
         });
     }
