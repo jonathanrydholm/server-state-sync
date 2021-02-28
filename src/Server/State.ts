@@ -5,14 +5,16 @@ export interface StateConfiguration {
     initialValue?: Object,
     allowConnectingClient?: (clientInformation: any) => Boolean,
     interceptStateUpdate?: (updates: Object, clientInformation: any) => Object | null,
-    selfDestruct?: (numberOfClients: number, timeSinceCreation: Date) => Boolean;
+    selfDestruct?: (numberOfClients: number, timeSinceCreation: Date) => Boolean,
+    ttl?: number
 }
 
 interface DefaultStateConfiguration extends StateConfiguration {
     initialValue: Object,
     allowConnectingClient: (clientInformation: any) => Boolean,
     interceptStateUpdate: (updates: Object, clientInformation: any) => Object | null,
-    selfDestruct: (numberOfClients: number, timeSinceCreation: Date) => Boolean;
+    selfDestruct: (numberOfClients: number, timeSinceCreation: Date) => Boolean,
+    ttl: number
 }
 
 export default class State {
@@ -25,7 +27,8 @@ export default class State {
         initialValue: {},
         allowConnectingClient: () => true,
         interceptStateUpdate: (updates: any) => updates,
-        selfDestruct: (_: number, __: Date) => false
+        selfDestruct: (_: number, __: Date) => false,
+        ttl: 0
     };
 
     private destructionHandler: () => void;
@@ -41,11 +44,19 @@ export default class State {
             ...config,
         };
 
+        this.destructionHandler = destructionHandler;
+
+        this.handleConfiguration(config);
+    }
+
+    private handleConfiguration = (config: StateConfiguration) => {
         if (config.initialValue) {
             this.value = config.initialValue;
         }
 
-        this.destructionHandler = destructionHandler;
+        if (config.ttl && config.ttl > 0) {
+            setTimeout(this.destroy, config.ttl);
+        }
     }
 
     public connectClient = (socketClient: SocketClient): void => {

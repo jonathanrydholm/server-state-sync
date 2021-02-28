@@ -79,7 +79,13 @@ export default class StateSyncer {
     */
     public removeState = (stateIdentifier: string): boolean => this.stateManager.removeState(stateIdentifier);
 
+    public removeAllStates = () => this.stateManager.removeAllStates();
+
     public connectToState = (socketClient: SocketClient, stateIdentifier: string) => this.stateManager.connectToState(socketClient, stateIdentifier);
+
+    public getValueOfState = (stateIdentifier: string): Object | undefined => this.stateManager.getStateValue(stateIdentifier);
+
+    public updateStateValue = (stateIdentifier: string, updates: Object, clientInformation: any) => this.stateManager.mutateState(stateIdentifier, updates, clientInformation);
 
     public start = (port: number): Promise<void | Error> => {
         return new Promise((resolve, reject) => {

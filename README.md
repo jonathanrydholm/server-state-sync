@@ -44,9 +44,15 @@ stateSyncer.createState({
     }
 });
 ```
-### Remove a state
+### Remove states
 ```js
-stateSyncer.removeState('stateIdentifier');
+stateSyncer.removeState('stateIdentifier'); // Returns true if state was deleted, false if it did not exist
+
+syncer.removeAllStates(); // removes all states
+```
+### Get the value of a state
+```js
+stateSyncer.getValueOfState('stateIdentifier'); // Returns undefined if no states matches the stateIdentifier
 ```
 ### State lifecycles
 ```js
@@ -67,11 +73,15 @@ stateSyncer.createState({
         return false;
     }
 })
+
+stateSyncer.createState({
+    ttl: 1000 * 60 * 60
+})
 ```
-As default, a state will never be destroyed. You can however override this behaviour with the selfDestruct property.
-First argument is the number of connected clients left, could be useful if you want to destroy your state if no clients are connected ot it anymore.
+By default, a state will never be destroyed. You can however override this behaviour with the selfDestruct or ttl properties. For selfDestruct, the 
+first argument is the number of connected clients left, could be useful if you want to destroy your state if no clients are connected ot it anymore.
 Second argument is the time of the state creation.
-Returning true means the state will be destroyed. This function will be called everytime a client disconnects.
+Returning true means the state will be destroyed. This function will be called everytime a client disconnects. Using the ttl property, you give your state a fixed number of milliseconds to live. In the example above, the state will live for 1 hour before being destroyed. 
 ## Client Side
 ### Connect client to StateSyncer
 ```js
@@ -158,7 +168,7 @@ If you only want to allow specific users to connect to a state, you can do the a
 ```js
 stateSyncer.createNewState({
     interceptStateUpdate: (updates, clientInformation) => {
-        if (userInformation.permissions.includes('somePermission')) {
+        if (clientInformation.permissions.includes('somePermission')) {
             return updates;
         }
         return null;
@@ -166,6 +176,11 @@ stateSyncer.createNewState({
 });
 ```
 If you want to intercept state changes on a specific state, use the interceptStateUpdate property. This is useful if you would like to validate some data, store the changes in a database, check for permissions or simply modify the data. If you return null, nothing will be stored and nothing will be broadcasted to any other connected clients.
+### Update states server-side
+```js
+syncer.updateStateValue('stateIdentifier', updates, clientInformation)
+```
+The interceptStateUpdate will be called during this call. clientInformation is optional
 ## SSL
 ### Make StateSyncer run in SSL mode
 ```js

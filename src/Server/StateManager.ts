@@ -37,4 +37,24 @@ export default class StateManager {
             })
         }
     }
+
+    public getStateValue = (stateIdentifier: string): Object | undefined => {
+        const state: State | undefined = this.states.get(stateIdentifier);
+        if (state) {
+            return state.getState();
+        }
+    }
+
+    public mutateState = (stateIdentifier: string, updates: Object, clientInformation: any) => {
+        const state: State | undefined = this.states.get(stateIdentifier);
+        if (state) {
+            return state.mutate(updates, clientInformation);
+        }
+    }
+
+    public removeAllStates = () => {
+        this.states.forEach((_, key) => {
+            this.removeState(key);
+        });
+    }
 }

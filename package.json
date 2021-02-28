@@ -1,6 +1,6 @@
 {
   "name": "server-state-sync",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "State synchronization between multiple clients",
   "main": "./dist/index.js",
   "scripts": {
@@ -15,6 +15,10 @@
   "files": [
     "dist"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jonathanrydholm/server-state-sync"
+  },
   "devDependencies": {
     "@types/jest": "^26.0.20",
     "@types/node": "^14.14.31",
