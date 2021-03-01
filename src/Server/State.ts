@@ -1,66 +1,44 @@
 import SocketClient from './SocketClient';
 import { ServerToClientMessageTypes } from '../Constants';
 
-export interface StateConfiguration {
-    initialValue?: Object,
-    allowConnectingClient?: (clientInformation: any) => Boolean,
-    interceptStateUpdate?: (updates: Object, clientInformation: any) => Object | null,
-    selfDestruct?: (numberOfClients: number, timeSinceCreation: Date) => Boolean,
+export interface StateConfiguration<T, K> {
+    initialValue: T,
+    allowConnectingClient?: (clientInformation: K) => Boolean,
+    interceptStateUpdate?: (updates: Partial<T>, clientInformation: K) => Partial<T> | null;
+    selfDestruct?: (numberOfClients: number, timeOfCreation: Date) => Boolean,
     ttl?: number
 }
 
-interface DefaultStateConfiguration extends StateConfiguration {
-    initialValue: Object,
-    allowConnectingClient: (clientInformation: any) => Boolean,
-    interceptStateUpdate: (updates: Object, clientInformation: any) => Object | null,
-    selfDestruct: (numberOfClients: number, timeSinceCreation: Date) => Boolean,
-    ttl: number
-}
+export default class State<T, K> {
 
-export default class State {
+    private connectedClients: Array<SocketClient<T, K>> = [];
 
-    private value: Object = {};
-
-    private connectedClients: Array<SocketClient> = [];
-    
-    private config: DefaultStateConfiguration = {
-        initialValue: {},
-        allowConnectingClient: () => true,
-        interceptStateUpdate: (updates: any) => updates,
-        selfDestruct: (_: number, __: Date) => false,
-        ttl: 0
-    };
-
-    private destructionHandler: () => void;
+    private value: T;
 
     private timeOfCreation: Date;
 
-    constructor(config: StateConfiguration, destructionHandler: () => void) {
+    private allowConnectingClient: (clientInformation: K) => Boolean;
+
+    private interceptStateUpdate: (updates: Partial<T>, clientInformation: K) => Partial<T> | null;
+
+    private selfDestruct: (numberOfClients: number, timeOfCreation: Date) => Boolean;
+
+    private destructionHandler: () => {};
+
+
+    constructor(config: StateConfiguration<T, K>, destructionHandler: () => {}) {
 
         this.timeOfCreation = new Date();
 
-        this.config = {
-            ...this.config,
-            ...config,
-        };
-
+        this.value = config.initialValue;
+        this.interceptStateUpdate = config.interceptStateUpdate ? config.interceptStateUpdate : (updates) => updates;
+        this.allowConnectingClient = config.allowConnectingClient ? config.allowConnectingClient : () => true;
+        this.selfDestruct = config.selfDestruct ? config.selfDestruct : () => false;
         this.destructionHandler = destructionHandler;
-
-        this.handleConfiguration(config);
     }
 
-    private handleConfiguration = (config: StateConfiguration) => {
-        if (config.initialValue) {
-            this.value = config.initialValue;
-        }
-
-        if (config.ttl && config.ttl > 0) {
-            setTimeout(this.destroy, config.ttl);
-        }
-    }
-
-    public connectClient = (socketClient: SocketClient): void => {
-        if (this.config.allowConnectingClient(socketClient.clientInformation)) {
+    public connectClient = (socketClient: SocketClient<T, K>): void => {
+        if (this.allowConnectingClient(socketClient.clientInformation)) {
             this.connectedClients.push(socketClient);
             socketClient.onStateConnected(this);
         } else {
@@ -73,19 +51,19 @@ export default class State {
         }
     }
 
-    public disconnectClient = (socketClient: SocketClient): void => {
+    public disconnectClient = (socketClient: SocketClient<T, K>): void => {
         this.connectedClients = this.connectedClients.filter(connectedClient => connectedClient.identifier !== socketClient.identifier);
 
-        if (this.config.selfDestruct(this.connectedClients.length, this.timeOfCreation)) {
+        if (this.selfDestruct(this.connectedClients.length, this.timeOfCreation)) {
             this.destroy();
         }
     }
 
-    public mutate = (updates: Object, clientInformation: any): void => {
-        const afterInterception = this.config.interceptStateUpdate(updates, clientInformation);
+    public mutate = (updates: Partial<T>, clientInformation: K): Boolean => {
+        const afterInterception = this.interceptStateUpdate(updates, clientInformation);
 
         if (afterInterception == null) {
-            return;
+            return false;
         }
 
         this.value = {
@@ -94,9 +72,10 @@ export default class State {
         };
 
         this.broadcastStateUpdate(afterInterception);
+        return true;
     }
 
-    public broadcastStateUpdate = (updates: Object) => {
+    public broadcastStateUpdate = (updates: Partial<T>) => {
         this.connectedClients.forEach(socketClient => {
             socketClient.sendMessage({
                 type: ServerToClientMessageTypes.STATE_UPDATED,
@@ -107,7 +86,9 @@ export default class State {
         })
     }
 
-    public getState = (): Object => this.value;
+    public getState(): T {
+        return this.value;
+    }
 
     private destroy = () => {
         this.destructionHandler();

@@ -1,20 +1,19 @@
 import { ClientToServerMessageTypes, ServerToClientMessageTypes } from '../Constants';
 
-export default class Client {
+export default class Client<T> {
 
     private socket: WebSocket;
 
-    private state: any;
+    private state!: T;
 
-    private stateUpdateListeners: Array<{ identifier: string, handler: (updates: any, previousUpdates: any) => void, properties: Array<string> }> = [];
+    private stateUpdateListeners: Array<{ identifier: string, handler: (updates: Partial<T>, previousUpdates: Partial<T>) => void, properties: Array<keyof T> }> = [];
 
     constructor(endpoint: string, identifier: string, accessToken?: string) {
-        this.state = new Map();
         this.socket = new WebSocket(`${endpoint}?identifier=${identifier}&token=${accessToken || ''}`);
         this.socket.onmessage = this.onMessage;
     };
 
-    public addStateUpdateListener = (identifier: string, handler: (updates: any, previousUpdates: any) => void, properties: Array<string> = [] ) => {
+    public addStateUpdateListener = (identifier: string, handler: (updates: Partial<T>, previousUpdates: Partial<T>) => void, properties: Array<keyof T> = [] ) => {
         this.stateUpdateListeners = this.stateUpdateListeners.filter(listener => listener.identifier !== identifier);
 
         this.stateUpdateListeners.push({
@@ -29,7 +28,7 @@ export default class Client {
     };
 
     private onMessage = (event: any) => {
-        const { type, data } = JSON.parse(event.data)
+        const { type, data } : { type: ServerToClientMessageTypes, data: any } = JSON.parse(event.data); 
 
         switch (type) {
             case ServerToClientMessageTypes.STATE_UPDATED:
@@ -61,7 +60,7 @@ export default class Client {
         });
     }
 
-    public updateState = (updates: object) => {
+    public updateState = (updates: Partial<T>) => {
         this.sendMesage({
             type: ClientToServerMessageTypes.UPDATE_STATE,
             data: {
@@ -78,16 +77,20 @@ export default class Client {
         this.socket.onerror = resolve;
     });
 
-    public getState = (): any => this.state;
+    public getState = (): T => this.state;
 
-    private onStateUpdated = (updates: any) => {
+    private onStateUpdated = (updates: Partial<T>) => {
 
-        const previousState: any = {};
-        
-        Object.keys(updates).forEach(key => {
+        const previousState: Partial<T> = updates;
+
+        for (let key in updates) {
             previousState[key] = this.state[key];
-            this.state[key] = updates[key];
-        });
+        }
+
+        this.state = {
+            ...this.state,
+            ...updates
+        };
 
         this.stateUpdateListeners.forEach(listener => {
             if (listener.properties.length > 0) {

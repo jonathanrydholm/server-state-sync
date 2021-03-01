@@ -3,31 +3,26 @@ import State, { StateConfiguration } from './State';
 import SocketClient from './SocketClient';
 import { ServerToClientMessageTypes } from '../Constants';
 
-export interface StateCreationConfiguration extends StateConfiguration {
-    identifier?: string
-}
+export default class StateManager<T, K> {
 
-export default class StateManager {
+    states: Map<string, State<T, K>> = new Map();
 
-    states: Map<string, State> = new Map();
-
-    public addState = (config: StateCreationConfiguration): string | null => {
-        const stateIdentifier = config.identifier || uuidv4();
+    public addState = (config: StateConfiguration<T, K>, identifier?: string): string | null => {
+        const stateIdentifier = identifier || uuidv4();
         if (this.states.has(stateIdentifier)) {
             return null;
         }
-        const state = new State({
-            ...config,
-        }, () => this.removeState(stateIdentifier));
+        const state = new State(config, () => this.removeState(stateIdentifier));
         this.states.set(stateIdentifier, state);
         return stateIdentifier;
     }
 
     public removeState = (identifier: string): boolean => this.states.delete(identifier);
 
-    public connectToState = (socketClient: SocketClient, stateIdentifier: string) => {
-        if (this.states.has(stateIdentifier)) {
-            this.states.get(stateIdentifier)?.connectClient(socketClient);
+    public connectToState = (socketClient: SocketClient<T, K>, stateIdentifier: string) => {
+        const state = this.states.get(stateIdentifier);
+        if (state) {
+            state.connectClient(socketClient);
         } else {
             socketClient.sendMessage({
                 type: ServerToClientMessageTypes.STATE_CONNECTION_ERROR,
@@ -38,18 +33,19 @@ export default class StateManager {
         }
     }
 
-    public getStateValue = (stateIdentifier: string): Object | undefined => {
-        const state: State | undefined = this.states.get(stateIdentifier);
+    public getStateValue (stateIdentifier: string): T | undefined {
+        const state: State<T, K> | undefined = this.states.get(stateIdentifier);
         if (state) {
             return state.getState();
         }
     }
 
-    public mutateState = (stateIdentifier: string, updates: Object, clientInformation: any) => {
-        const state: State | undefined = this.states.get(stateIdentifier);
+    public mutateState (stateIdentifier: string, updates: Partial<T>, clientInformation: K): Boolean {
+        const state: State<T, K> | undefined = this.states.get(stateIdentifier);
         if (state) {
             return state.mutate(updates, clientInformation);
         }
+        return false;
     }
 
     public removeAllStates = () => {

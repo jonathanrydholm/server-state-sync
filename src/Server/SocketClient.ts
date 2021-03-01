@@ -2,19 +2,19 @@ import State from './State';
 import StateSyncer from './StateSyncer';
 import { ClientToServerMessageTypes, ClientToServerMessage, ServerToClientMessage, ServerToClientMessageTypes } from '../Constants';
 
-export default class SocketClient {
+export default class SocketClient<T, K> {
 
     identifier: string;
 
-    clientInformation: any;
+    clientInformation: K;
 
     socket: WebSocket;
 
-    stateSyncer: StateSyncer;
+    stateSyncer: StateSyncer<T, K>;
 
-    state!: State;
+    state!: State<T, K>;
 
-    constructor(socket: WebSocket, stateSyncer: StateSyncer, clientInformation: any, identifier: string) {
+    constructor(socket: WebSocket, stateSyncer: StateSyncer<T, K>, clientInformation: K, identifier: string) {
         this.socket = socket;
         this.stateSyncer = stateSyncer;
         this.clientInformation = clientInformation;
@@ -85,7 +85,7 @@ export default class SocketClient {
         }
     }
     
-    public onStateConnected = (state: State) => {
+    public onStateConnected = (state: State<T, K>) => {
         this.state = state;
         this.socket.onclose = () => state.disconnectClient(this);
         this.sendMessage({
